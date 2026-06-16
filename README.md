@@ -80,8 +80,8 @@ The web dashboard connects directly to the MQTT broker via WebSockets to display
 ### 1. Hardware Setup & Arduino Execution
 > *Description: Hardware connected properly. The LCD displays the scrolling name and temperature.*
 > 
-> *<-- Insert Hardware / LCD Photo Here -->*
-> ![Hardware Execution]()
+> *<-- Insert LCD Screenshot Here -->*
+> ![LCD Display](screenshot-placeholder-lcd.png)
 
 ### 2. Python Script Terminal
 > *Description: The Python script reading serial data and successfully publishing to the Mosquitto MQTT broker.*
