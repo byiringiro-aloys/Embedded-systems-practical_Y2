@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Temperature Dashboard</title>
+    <!-- MQTT.js for WebSockets connection to broker -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Tailwind CSS for rapid UI styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen text-gray-800">
+
+<div class="container mx-auto px-4 py-8 max-w-5xl">
+    <!-- Header -->
+    <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-indigo-900"><i class="fas fa-microchip mr-2"></i>IoT Dashboard</h1>
+            <p class="text-gray-600 mt-1 font-medium">BYIRINGIRO ALOYS Y2A - Embedded Systems</p>
+        </div>
+        <div class="flex items-center glass-panel px-4 py-2 rounded-full shadow-sm">
+            <div id="status-indicator" class="w-3 h-3 rounded-full bg-red-500 mr-2 animate-pulse"></div>
+            <span id="status-text" class="text-sm font-semibold text-gray-700">Connecting...</span>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Current Temp Card -->
+        <div class="glass-panel rounded-2xl p-6 shadow-lg flex flex-col justify-center items-center md:col-span-1 min-h-[250px]">
+            <h2 class="text-lg font-medium text-gray-500 mb-2">Current Temperature</h2>
+            <div class="flex items-baseline my-4">
+                <span id="temp-value" class="text-6xl font-extrabold text-indigo-600">--</span>
+                <span class="text-2xl text-gray-400 ml-2">°C</span>
+            </div>
+            <div class="mt-4 flex items-center text-sm text-gray-500">
+                <i class="fas fa-clock mr-1"></i> Last updated: <span id="last-update" class="ml-1 font-medium text-gray-700">Waiting for data...</span>
+            </div>
+        </div>
+
+        <!-- Chart Card -->
+        <div class="glass-panel rounded-2xl p-6 shadow-lg md:col-span-2">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-medium text-gray-500">Temperature History</h2>
+                <span class="text-xs text-gray-400">Live Updates</span>
+            </div>
+            <div class="relative h-64 w-full">
+                <canvas id="tempChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Configuration
+    // We use WSS (WebSocket Secure) to ensure the dashboard works when deployed on HTTPS (like GitHub Pages/Vercel)
+    const brokerUrl = 'wss://test.mosquitto.org:8081/mqtt';
+    const topic = 'byiringiro_aloys/y2a/temperature';
+
+    // DOM Elements
+    const statusIndicator = document.getElementById('status-indicator');
+    const statusText = document.getElementById('status-text');
+    const tempValue = document.getElementById('temp-value');
+    const lastUpdate = document.getElementById('last-update');
+
+    // Chart.js Setup
+    const ctx = document.getElementById('tempChart').getContext('2d');
+    const tempChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Temperature (°C)',
+                data: [],
+                borderColor: 'rgb(79, 70, 229)', // Indigo-600
+                backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                borderWidth: 2,
+                pointBackgroundColor: 'rgb(79, 70, 229)',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                fill: true,
+                tension: 0.4 // Smooth curves
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    suggestedMin: 15,
+                    suggestedMax: 35,
+                    grid: { color: 'rgba(0,0,0,0.05)' }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { maxTicksLimit: 10 }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(17, 24, 39, 0.8)',
+                    padding: 10,
+                    cornerRadius: 8,
+                    displayColors: false,
+                }
+            },
+            animation: { duration: 400 }
+        }
+    });
+
+    const maxDataPoints = 20;
+
+    function updateDashboard(temp) {
+        // Update Text
+        tempValue.innerText = temp.toFixed(1);
+        
+        // Dynamic Color coding based on temperature thresholds
+        if(temp >= 30) {
+            tempValue.className = "text-6xl font-extrabold text-red-500";
+            tempChart.data.datasets[0].borderColor = 'rgb(239, 68, 68)'; // Red
+            tempChart.data.datasets[0].backgroundColor = 'rgba(239, 68, 68, 0.1)';
+            tempChart.data.datasets[0].pointBackgroundColor = 'rgb(239, 68, 68)';
+        } else if(temp <= 20) {
+            tempValue.className = "text-6xl font-extrabold text-blue-500";
+            tempChart.data.datasets[0].borderColor = 'rgb(59, 130, 246)'; // Blue
+            tempChart.data.datasets[0].backgroundColor = 'rgba(59, 130, 246, 0.1)';
+            tempChart.data.datasets[0].pointBackgroundColor = 'rgb(59, 130, 246)';
+        } else {
+            tempValue.className = "text-6xl font-extrabold text-indigo-600";
+            tempChart.data.datasets[0].borderColor = 'rgb(79, 70, 229)'; // Indigo
+            tempChart.data.datasets[0].backgroundColor = 'rgba(79, 70, 229, 0.1)';
+            tempChart.data.datasets[0].pointBackgroundColor = 'rgb(79, 70, 229)';
+        }
+
+        const now = new Date();
+        lastUpdate.innerText = now.toLocaleTimeString();
+
+        // Update Chart
+        const timeLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        
+        tempChart.data.labels.push(timeLabel);
+        tempChart.data.datasets[0].data.push(temp);
+
+        // Keep chart history to maxDataPoints
+        if (tempChart.data.labels.length > maxDataPoints) {
+            tempChart.data.labels.shift();
+            tempChart.data.datasets[0].data.shift();
+        }
+        tempChart.update();
+    }
+
+    // MQTT Connection Setup
+    const client = mqtt.connect(brokerUrl);
+
+    client.on('connect', () => {
+        console.log('Connected to MQTT via WebSockets');
+        statusIndicator.classList.replace('bg-red-500', 'bg-green-500');
+        statusIndicator.classList.remove('animate-pulse');
+        statusText.innerText = 'Connected to Broker';
+        
+        client.subscribe(topic, (err) => {
+            if (!err) {
+                console.log('Subscribed to topic:', topic);
+            }
+        });
+    });
+
+    client.on('message', (topic, message) => {
+        // Parse the incoming string message to a float
+        const temp = parseFloat(message.toString());
+        if(!isNaN(temp)) {
+            updateDashboard(temp);
+        }
+    });
+
+    client.on('error', (error) => {
+        console.error('MQTT Error:', error);
+        statusIndicator.classList.replace('bg-green-500', 'bg-red-500');
+        statusText.innerText = 'Connection Error';
+    });
+    
+    client.on('close', () => {
+        statusIndicator.classList.replace('bg-green-500', 'bg-red-500');
+        statusIndicator.classList.add('animate-pulse');
+        statusText.innerText = 'Disconnected';
+    });
+
+</script>
+</body>
+</html>
