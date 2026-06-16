@@ -6,8 +6,25 @@
 ## 📌 Project Overview
 This project is an end-to-end embedded system designed to read temperature data, display it locally on an LCD, transmit it to a PC via USB Serial, and publish it to an MQTT broker. Finally, a real-time web dashboard visualizes the live temperature data.
 
-### 🔄 System Flow
-`Temperature Sensor (DHT11)` ➔ `Arduino Uno` ➔ `LCD & USB Serial` ➔ `PC Python Script` ➔ `MQTT Broker` ➔ `Web Dashboard`
+### 🔄 System Architecture & Flow
+
+```mermaid
+graph LR
+    A[DHT11 Sensor] -- Temp Data --> B(Arduino Uno)
+    B -- I2C --> C[16x2 LCD]
+    B -- USB Serial --> D{PC Python Script}
+    D -- Publish --> E((MQTT Broker))
+    E -- Subscribe WSS --> F[Web Dashboard]
+    
+    style A fill:#f9f,stroke:#333,stroke-width:2px
+    style B fill:#bbf,stroke:#333,stroke-width:2px
+    style C fill:#bfb,stroke:#333,stroke-width:2px
+    style D fill:#fbf,stroke:#333,stroke-width:2px
+    style E fill:#fbb,stroke:#333,stroke-width:2px
+    style F fill:#bff,stroke:#333,stroke-width:2px
+```
+
+*(Data flows from the sensor to the microcontroller, is displayed locally, forwarded via USB to a PC, published to the cloud, and visualized on a web client).*
 
 ---
 
